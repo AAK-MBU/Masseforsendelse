@@ -7,6 +7,7 @@ name = "masseforsendelse"
 version = "0.0.2"
 authors = [
   { name = "ddj", email = "dadj@aarhus.dk" },
+  { name = "Sebastian", email = "ahss@aarhus.dk" },
 ]
 requires-python = ">=3.11"
 classifiers = [
@@ -20,7 +21,9 @@ dependencies = [
     "MBU-dev-shared-components >= 0.0.50",
     "itk-dev-shared-components == 2.8.*",
     "portalocker",
-    "pandas"
+    "pandas",
+    "pypdf",
+    "reportlab",
 ]
 
 [project.optional-dependencies]

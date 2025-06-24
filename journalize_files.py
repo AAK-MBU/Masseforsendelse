@@ -1,7 +1,4 @@
 """ the main function to run both the fetch and journalization processes """
-import os
-import sys
-import json
 
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
 
@@ -92,30 +89,21 @@ def main(
 
 if __name__ == "__main__":
 
-    # !!! DELETE THIS !!!
-
-    sys.argv = [
-        "linear_framework.py",
-        "DADJ - test af løn journalisering",
-        os.getenv("ORCHESTRATOR_CONNECTION_STRING"),
-        os.getenv("ORCHESTRATOR_ENCRYPTION_KEY"),
-        json.dumps({
-            "test_key": "test_value",
-        })
-    ]
-
-    # !!! DELETE THIS !!!
-
-    test_orchestrator_connection = OrchestratorConnection.create_connection_from_args()
+    oc = OrchestratorConnection(
+        process_name="",  # Name of OO process
+        connection_string="",  # OO connection string
+        crypto_key="",  # OO connection key
+        process_arguments="",  # OO process arguments (not needed here)
+    )
 
     main(
-        orchestrator_connection=test_orchestrator_connection,
-        masseforsendelse_folder_path="C:/tmp/Masseforsendelse/",
-        employee_list_filename="Masseforsendelse.xlsx",
-        employee_list_sheet_name="Ansatte",
-        files_to_journalize_path="C:/tmp/Masseforsendelse/udsendte_dokumenter",
-        final_journalized_filename="2025.03.28 Meddelelse om løn 2025.07.01",
-        document_category="Udgående",
+        orchestrator_connection=oc,
+        masseforsendelse_folder_path="",  # Path to folder containing Excel file with necessary information
+        employee_list_filename="",  # Name of Excel file with necessary information
+        employee_list_sheet_name="",  # Name of sheet with necessary information
+        files_to_journalize_path="",  # Path to folder containing separate files to be journalized
+        final_journalized_filename="",  # Title of the documents when journalized
+        document_category="",  # Category of document in journalization
         case_type="PER",
-        case_title="Ansættelse og lønaftaler",
+        case_title="Ansættelse og lønaftaler",  # Name of folder in employee-folder where documents should be journalized
     )
