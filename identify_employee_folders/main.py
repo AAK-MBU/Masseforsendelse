@@ -35,7 +35,7 @@ def identify_employee_folders(
     main func
     """
 
-    employee_ssn_to_case_id_mapping = file_handler.load_or_create_csv_with_headers(filename="employee_case_ids.csv", headers=["cpr", "case_id"])
+    employee_case_ids_csv_file = file_handler.load_or_create_csv_with_headers(filename="employee_case_ids.csv", headers=["cpr", "case_id"])
 
     # Build a mapping of CPR numbers to employee data from the Excel file
     cpr_dicts = file_handler.build_cpr_mapping(filename=employee_list_filename, sheet_name=employee_list_sheet_name)
@@ -66,6 +66,8 @@ def identify_employee_folders(
         # Initialize the salary_case_id variable to None for each iteration, so we can freely manipulate it later
         salary_case_id = None
 
+        employment_code = data.get("tjenestenummer")
+
         if file_handler.cpr_exists_in_csv(output_filename="employee_case_ids.csv", cpr=cpr):
             print(f"CPR {cpr} already exists. Skipping...\n")
 
@@ -75,11 +77,11 @@ def identify_employee_folders(
 
         # Retrieve the employee's name and ID from the case handler using the CPR number
         person_full_name, person_go_id = helper_functions.contact_lookup(case_handler=case_handler, ssn=cpr)
-        print(f"iterative_number: {i + 1}\nname: {person_full_name}\nperson_go_id: {person_go_id}\ncpr: {cpr}\n")
+        print(f"iterative_number: {i + 1}\nname: {person_full_name}\nperson_go_id: {person_go_id}\ncpr: {cpr}\nemployment code: {data.get('tjenestenummer')}\n")
 
         # This dictionary contains the properties we want to use, when searching for the case folder
         properties_for_case_search = {
-            "ows_Title": case_title,
+            "ows_Title": case_title
         }
 
         # Attempt 1: Check case folder with initial parameters
@@ -99,66 +101,66 @@ def identify_employee_folders(
 
         print(f"salary_case_info:\n{salary_case_info}")
 
-        # In some cases, the search might return more than one case folder, if the person has multiple employment codes
-        if len(salary_case_info) > 1:
-            print("THIS PERSON HAS MORE THAN 1 CASE FOLDER - IMPORTANT!")
+        if salary_case_info:
+            salary_case_id = get_correct_case_id(
+                case_handler=case_handler,
+                salary_case_info=salary_case_info,
+                employment_code=employment_code
+            )
 
-            tjenestenummer = data.get("tjenestenummer")
-
-            # If that is the case, we need to identify the correct case folder by using the employment code (tjenestenummer) from the Excel file
-            salary_case_id = helper_functions.identify_correct_case_by_employment_code(case_handler=case_handler, salary_case_info=salary_case_info, tjenestenummer=tjenestenummer)
-
-        else:
-            # If the search returns only one case folder, we can simply extract the CaseID from the first item in the list
-            if salary_case_info:
-                salary_case_id = salary_case_info[0].get('CaseID')
-
+        if not salary_case_id:
             # In some cases, the search might return no case folder at all - therefore we expand the search by removing the name from the search, whils keeping the ssn, the go_id, and with with the case_title as a field property
-            else:
-                print("\nAttempt 2")
+            print("\nAttempt 2")
 
-                salary_case_info_without_name = helper_functions.check_case_folder(
+            salary_case_info_without_name = helper_functions.check_case_folder(
+                case_data_handler=case_data_handler,
+                case_handler=case_handler,
+                case_type=case_type,
+                person_full_name=person_full_name,
+                person_go_id=person_go_id,
+                ssn=cpr,
+                include_name=False,
+                returned_cases_number="25",
+                field_properties=properties_for_case_search
+            )
+            print(f"salary_case_info_without_name:\n{salary_case_info_without_name}")
+
+            if salary_case_info_without_name:
+                salary_case_id = get_correct_case_id(
+                    case_handler=case_handler,
+                    salary_case_info=salary_case_info_without_name,
+                    employment_code=employment_code
+                )
+
+            # Worst case scenario, the search returns no case folder at all - therefore we expand the search by removing the case_title from the search, and only keeping the name, go_id and ssn in the search
+            # This will now return all active employee cases for the person, regardless of the case_title
+            if not salary_case_id:
+                print("\nAttempt 3")
+
+                all_cases_info = helper_functions.check_case_folder(
                     case_data_handler=case_data_handler,
                     case_handler=case_handler,
                     case_type=case_type,
                     person_full_name=person_full_name,
                     person_go_id=person_go_id,
                     ssn=cpr,
-                    include_name=False,
+                    include_name=True,
                     returned_cases_number="25",
-                    field_properties=properties_for_case_search
+                    field_properties=None
                 )
-                print(f"salary_case_info_without_name:\n{salary_case_info_without_name}")
 
-                if salary_case_info_without_name:
-                    salary_case_id = salary_case_info_without_name[0].get('CaseID')
+                if all_cases_info:
+                    print(f"\nall_cases_info:\n{all_cases_info}\n")
 
-                # Worst case scenario, the search returns no case folder at all - therefore we expand the search by removing the case_title from the search, and only keeping the name, go_id and ssn in the search
-                # This will now return all active employee cases for the person, regardless of the case_title
-                else:
-                    print("\nAttempt 3")
-
-                    all_cases_info = helper_functions.check_case_folder(
-                        case_data_handler=case_data_handler,
+                    salary_case_id = helper_functions.get_case_id_through_metadata(
                         case_handler=case_handler,
-                        case_type=case_type,
-                        person_full_name=person_full_name,
-                        person_go_id=person_go_id,
-                        ssn=cpr,
-                        include_name=True,
-                        returned_cases_number="25",
-                        field_properties=None
+                        all_cases_info=all_cases_info,
+                        case_title=case_title,
+                        employment_code=employment_code
                     )
 
-                    if all_cases_info:
-                        # We fetch the case id of the first case folder in the list, which should be the employee folder
-                        employee_folder_id = all_cases_info[0].get('CaseID')
-
-                        # We then use this employee folder id to get the salary case id, by looping the remaining cases in the list, and checking the metadata for each case, until we find the case with a matching case title
-                        salary_case_id = helper_functions.get_salary_case_id_through_metadata(case_handler=case_handler, employee_folder_id=employee_folder_id, case_title=case_title)
-
-                    else:
-                        salary_case_id = None
+                else:
+                    salary_case_id = None
 
         if salary_case_id:
             mapping_entry = {cpr: salary_case_id}
@@ -172,4 +174,34 @@ def identify_employee_folders(
 
         print(LINE_BREAK)
 
-    return employee_ssn_to_case_id_mapping
+    # return employee_ssn_to_case_id_mapping
+    return employee_case_ids_csv_file
+
+
+def get_correct_case_id(case_handler: CaseHandler, salary_case_info: list, employment_code: str) -> str:
+    """
+    This function retrieves the correct case ID from the salary_case_info list based on the employment code.
+    """
+
+    employment_code_with_xa = f"XA{employment_code}"
+
+    for case in salary_case_info:
+        case_id = case.get('CaseID')
+
+        employee_folder_id = case.get('RelativeUrl').split("/")[-1]
+
+        if case_id == employee_folder_id:
+            continue
+
+        response = case_handler.get_case_metadata(endpoint_path=f'/_goapi/Cases/Metadata/{employee_folder_id}')
+
+        # We parse the metadata string returned from the API, using the parse_metadata function
+        formatted_case_metadata = helper_functions.parse_metadata(metadata_str=response.json().get("Metadata"))
+
+        if formatted_case_metadata.get("ows_EmploymentCode") in (employment_code, employment_code_with_xa):
+            salary_case_id = case_id
+
+            return salary_case_id
+
+    # If no matching case is found, return None
+    return None

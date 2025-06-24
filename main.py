@@ -15,8 +15,8 @@ from helper_scripts.case_handler import CaseHandler
 
 from helper_scripts.document_handler import DocumentHandler
 
-from identify_employee_folders.validation import run_validation
 from identify_employee_folders.main import identify_employee_folders
+
 from handle_journalization.main import handle_journalization
 
 LINE_BREAK = "\n\n\n------------------------------------------------------------------------------------------------------------------\n\n\n"
@@ -65,46 +65,27 @@ def main(
         credentials['go_api_username'],
         credentials['go_api_password'])
 
-    # run_validation_bool = False
-    run_validation_bool = True
-    if run_validation_bool:
-        run_validation(
-            file_handler=file_handler,
-            case_handler=case_handler,
-            case_data_handler=case_data_handler,
-            document_handler=document_handler,
-            employee_list_filename=employee_list_filename,
-            employee_list_sheet_name=employee_list_sheet_name,
-            case_type=case_type,
-            case_title=case_title,
-            files_to_journalize_path=files_to_journalize_path,
-        )
+    case_ids_csv_file = identify_employee_folders(
+        file_handler=file_handler,
+        case_handler=case_handler,
+        case_data_handler=case_data_handler,
+        employee_list_filename=employee_list_filename,
+        employee_list_sheet_name=employee_list_sheet_name,
+        case_type=case_type,
+        case_title=case_title,
+    )
 
-    run_identification = False
-    # run_identification = True
-    if run_identification:
-        csv_file = identify_employee_folders(
-            file_handler=file_handler,
-            case_handler=case_handler,
-            case_data_handler=case_data_handler,
-            employee_list_filename=employee_list_filename,
-            employee_list_sheet_name=employee_list_sheet_name,
-            case_type=case_type,
-            case_title=case_title,
-        )
+    journalized_docs = handle_journalization(
+        orchestrator_connection=orchestrator_connection,
+        file_handler=file_handler,
+        document_handler=document_handler,
+        csv_file=case_ids_csv_file,
+        files_to_journalize_path=files_to_journalize_path,
+        journalized_filename=final_journalized_filename,
+        document_category=document_category,
+    )
 
-    journalize_documents = False
-    # journalize_documents = True
-    if journalize_documents:
-        handle_journalization(
-            orchestrator_connection=orchestrator_connection,
-            file_handler=file_handler,
-            document_handler=document_handler,
-            masseforsendelse_folder_path=masseforsendelse_folder_path,
-            files_to_journalize_path=files_to_journalize_path,
-            journalized_filename=final_journalized_filename,
-            document_category=document_category,
-        )
+    print(f"Length of journalized_docs: {len(journalized_docs)}")
 
     return "Successfully ran masseforsendelse script"
 

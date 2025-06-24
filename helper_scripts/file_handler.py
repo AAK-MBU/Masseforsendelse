@@ -164,12 +164,12 @@ class FileHandler:
             return False
 
         # Ensure the "CPR Nummer" column is read as string
-        df = pd.read_csv(output_file_path, dtype={"CPR Nummer": str})
+        df = pd.read_csv(output_file_path, dtype={"cpr": str})
 
-        if "CPR Nummer" not in df.columns:
+        if "cpr" not in df.columns:
             return False
 
-        return cpr in df["CPR Nummer"].values
+        return cpr in df["cpr"].values
 
     def append_cpr_case_mapping_csv(self, mapping: list, output_filename: str) -> None:
         """
@@ -245,78 +245,3 @@ class FileHandler:
             cpr_mapping[cpr_value] = salary_case_id
 
         return cpr_mapping
-
-    def get_case_ids_mapping(self, csv_filename: str) -> dict:
-        """
-        Reads a CSV file (e.g., 'case_ids.csv') which contains two columns:
-        - "CPR Nummer"
-        - "Salary Case ID"
-
-        Returns a dictionary mapping each CPR number (as a string) to its associated case ID string.
-        """
-
-        file_path = os.path.join(self.directory, csv_filename)
-        df = pd.read_csv(file_path, dtype={"CPR Nummer": str, "Salary Case ID": str})
-
-        mapping = {}
-        for _, row in df.iterrows():
-            cpr = row["CPR Nummer"].strip()
-            mapping[cpr] = row["Salary Case ID"]
-        return mapping
-
-    def get_cpr_mapping_with_salary_case(self, filename: str, sheet_name: str, csv_filename: str) -> dict:
-        """
-        Reads each row from an Excel file (with the specified sheet and filename) and returns a dictionary
-        where each key is a CPR number and each value is a dictionary with keys:
-        - "tjenestenummer"
-        - "navn"
-        - "stilling"
-        - "salary_case_id"   (populated by looking up the CPR in the CSV file)
-
-        It assumes the Excel file has the columns:
-        "Tjenestenummer", "CPR", "Navn", and "Stilling"
-        and the CSV file has the columns "CPR Nummer" and "Salary Case ID".
-        """
-
-        file_path = self._get_file_path(filename)
-        df = pd.read_excel(
-            file_path,
-            sheet_name=sheet_name,
-            converters={
-                'CPR': str,
-                'Tjenestenummer': str,
-                'Navn': str,
-                'Stilling': str
-            }
-        )
-
-        # Ensure required columns exist
-        required_cols = ['CPR', 'Tjenestenummer', 'Navn', 'Stilling']
-        for col in required_cols:
-            if col not in df.columns:
-                raise ValueError(f"Missing required column '{col}' in the sheet.")
-
-        # Sort the DataFrame by the numeric value of the CPR column
-        df.sort_values(by='CPR', key=lambda col: col.astype(int), inplace=True)
-
-        # Build the base dictionary from Excel data
-        cpr_dict = {}
-        for _, row in df.iterrows():
-            cpr_value = row['CPR']
-            if pd.isna(cpr_value):
-                continue  # skip rows with missing CPR
-            cpr_value = cpr_value.strip()
-            cpr_dict[cpr_value] = {
-                "tjenestenummer": row['Tjenestenummer'] if not pd.isna(row['Tjenestenummer']) else "",
-                "navn": row['Navn'] if not pd.isna(row['Navn']) else "",
-                "stilling": row['Stilling'] if not pd.isna(row['Stilling']) else ""
-            }
-
-        # Now load the CSV mapping for salary_case_id
-        csv_mapping = self.get_case_ids_mapping(csv_filename)
-
-        # Merge the data: for each CPR in the Excel mapping, add the salary_case_id (or empty string if not found)
-        for cpr, data in cpr_dict.items():
-            data["salary_case_id"] = csv_mapping.get(cpr, "")
-
-        return cpr_dict

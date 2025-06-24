@@ -117,8 +117,7 @@ def journalize_file(
             document_data = document_handler.create_document_metadata(
                 case_id=case_id,
                 filename=filename_with_extension,
-                # data_in_bytes=list(file_bytes),
-                data_in_bytes=data_in_bytes,  # Updated - test with bytes directly
+                data_in_bytes=data_in_bytes,
                 overwrite="true",  # Determines if the document should be overwritten if it already exists - based on the filename!
                 document_date=received_date,
                 document_title=filename_without_extension,
